@@ -786,3 +786,634 @@ When running on WSL with code on `/mnt/c/` (Windows filesystem):
 - [ ] Seed script for demo data (`prisma/seed.ts`)
 - [ ] Production deployment configuration (Docker, PostgreSQL)
 - [ ] Offline support with service worker
+
+---
+
+## 15. UI/UX Design System
+
+This section provides the complete visual design specification so that any team can **exactly replicate** the look and feel of the BuildMate web application.
+
+---
+
+### 15.1 Design Philosophy
+
+- **Clean, professional, and functional** — designed for tradies and builders who need quick, no-nonsense access to project data
+- **Mobile-first responsive** — every page works on phone, tablet, and desktop
+- **Consistent card-based layout** — content is grouped into white rounded cards on a light-gray background
+- **Minimal decoration** — no gradients, no heavy shadows, no decorative images. Let data breathe.
+
+---
+
+### 15.2 Colour Palette
+
+All colours are defined as **custom Tailwind colours** in `tailwind.config.js`:
+
+| Token | Hex (DEFAULT) | Shades Defined | Usage |
+|---|---|---|---|
+| `primary` | `#1E40AF` | 50 `#EFF6FF`, 100 `#DBEAFE`, 200 `#BFDBFE`, 300 `#93C5FD`, 400 `#60A5FA`, 500 `#3B82F6`, 600 `#1E40AF`, 700 `#1E3A8A`, 800 `#1E3380`, 900 `#1E2D70` | Buttons, links, active nav, branding, focus rings, progress bars |
+| `success` | `#059669` | 50 `#ECFDF5`, 100 `#D1FAE5`, 500 `#059669`, 600 `#047857` | Paid, complete, positive values, income amounts |
+| `warning` | `#D97706` | 50 `#FFFBEB`, 100 `#FEF3C7`, 500 `#D97706`, 600 `#B45309` | Pending, on-hold, expiring, in-progress badges |
+| `danger` | `#DC2626` | 50 `#FEF2F2`, 100 `#FEE2E2`, 500 `#DC2626`, 600 `#B91C1C` | Overdue, failed, over-budget, expense amounts, delete actions |
+
+**Tailwind built-in colours also used:**
+
+| Colour | Usage |
+|---|---|
+| `gray-50` (`#F9FAFB`) | Page background (`<body>`, `<main>`) |
+| `gray-100` (`#F3F4F6`) | Tab bar background, secondary button hover |
+| `gray-200` (`#E5E7EB`) | Card borders, table borders, dividers |
+| `gray-300` (`#D1D5DB`) | Input borders, checkbox borders |
+| `gray-400` (`#9CA3AF`) | Placeholder text, icons in empty states |
+| `gray-500` (`#6B7280`) | Secondary text, labels, metadata |
+| `gray-600` (`#4B5563`) | Body text (secondary) |
+| `gray-700` (`#374151`) | Body text (primary in secondary buttons) |
+| `gray-900` (`#111827`) | Headings, card titles, primary text |
+| `blue-50` / `blue-600` | Scheduled/open badges, info highlights |
+| `orange-50` / `orange-600` | High priority badges |
+| `purple-600` | Milestone markers in Gantt chart |
+| `emerald-500` / `emerald-100` | Gantt bar: COMPLETE status |
+| `blue-500` / `blue-100` | Gantt bar: IN_PROGRESS status |
+| `amber-500` / `amber-100` | Gantt bar: ON_HOLD status |
+| `red-500` / `red-100` | Gantt bar: BLOCKED status |
+
+**Theme colour (browser):** `#1E40AF` (set via `<meta name="theme-color">` in `index.html`)
+
+---
+
+### 15.3 Typography
+
+Tailwind's default font stack is used (no custom fonts):
+
+```
+font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+```
+
+| Element | Tailwind Classes | Size | Weight |
+|---|---|---|---|
+| Page heading | `text-xl font-bold text-gray-900` | 20px | 700 (bold) |
+| Card title | `text-sm font-semibold text-gray-900` | 14px | 600 (semibold) |
+| Modal title | `text-lg font-semibold` | 18px | 600 |
+| Body text | `text-sm text-gray-900` | 14px | 400 (normal) |
+| Secondary text | `text-sm text-gray-500` | 14px | 400 |
+| Small label | `text-xs text-gray-500` | 12px | 400 |
+| Table header | `text-xs font-medium uppercase tracking-wider text-gray-500` | 12px | 500 + uppercase + tracking |
+| Form label | `text-sm font-medium text-gray-700` | 14px | 500 |
+| Button text | `text-sm font-medium` | 14px | 500 |
+| Nav link | `text-sm font-medium` | 14px | 500 |
+| Badge text | `text-xs font-medium capitalize` | 12px | 500 + capitalize |
+| Stat value | `text-xl font-bold text-gray-900` or `text-2xl font-bold` | 20–24px | 700 |
+| Chart tick label | `fontSize: 12` (Recharts prop) | 12px | 400 |
+| Gantt task label | `text-xs font-medium text-gray-800` | 12px | 500 |
+| Gantt week header | `text-[10px] font-medium text-gray-500` | 10px | 500 |
+| Branding "BuildMate" | `text-lg font-bold text-primary` | 18px | 700 |
+
+**Antialiasing:** `antialiased` class on `<body>` for smoother rendering.
+
+---
+
+### 15.4 Spacing & Layout System
+
+#### Global Layout
+
+```
+┌──────────────────────────────────────────────────────┐
+│ Sidebar (w-64, hidden on mobile)                     │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │ Logo bar: h-16, px-6, border-b                   │ │
+│ │ Nav items: px-3 py-4, gap-y-1                    │ │
+│ └──────────────────────────────────────────────────┘ │
+│                                                      │
+│ Main area: md:pl-64                                  │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │ Header: h-16, sticky top-0, px-4 sm:px-6        │ │
+│ ├──────────────────────────────────────────────────┤ │
+│ │ Content: p-4 sm:p-6, pb-20 (mobile) md:pb-6     │ │
+│ └──────────────────────────────────────────────────┘ │
+│                                                      │
+│ Bottom Nav (mobile only): fixed bottom-0, md:hidden  │
+└──────────────────────────────────────────────────────┘
+```
+
+#### Breakpoints (Tailwind defaults)
+
+| Prefix | Min Width | Layout Behaviour |
+|---|---|---|
+| (none) | 0px | Single column, bottom nav visible, sidebar hidden |
+| `sm` | 640px | Slightly wider padding (`p-6`), 2-column grids |
+| `md` | 768px | Sidebar visible, bottom nav hidden, multi-column grids |
+| `lg` | 1024px | 3–4 column grids |
+
+#### Spacing Constants
+
+| Use Case | Value |
+|---|---|
+| Page section vertical gap | `space-y-6` (24px) |
+| Card grid gap | `gap-4` (16px) |
+| Card internal padding | `p-4 sm:p-6` (16px / 24px) |
+| Card header padding | `px-4 py-3 sm:px-6` |
+| Form field vertical gap | `space-y-4` (16px) |
+| Button icon gap | `gap-2` (8px) |
+| Nav item gap | `space-y-1` (4px) |
+| Nav item padding | `px-3 py-2.5` |
+| Table cell padding | `px-4 py-3` |
+| Modal padding | `p-6` |
+| Modal max width | `max-w-lg` (512px) |
+
+---
+
+### 15.5 Component Design Specifications
+
+#### Button (`components/ui/Button.tsx`)
+
+| Property | Value |
+|---|---|
+| Base classes | `inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none` |
+| Border radius | `rounded-lg` (8px) |
+| Focus | `focus:ring-2 focus:ring-offset-2` with variant colour |
+
+| Variant | Background | Text | Hover | Focus Ring |
+|---|---|---|---|---|
+| `primary` | `bg-primary` (#1E40AF) | `text-white` | `hover:bg-primary-700` | `focus:ring-primary-500` |
+| `secondary` | `bg-gray-100` | `text-gray-700` | `hover:bg-gray-200` | `focus:ring-gray-400` |
+| `danger` | `bg-danger` (#DC2626) | `text-white` | `hover:bg-danger-600` | `focus:ring-danger-500` |
+| `ghost` | `bg-transparent` | `text-gray-700` | `hover:bg-gray-100` | `focus:ring-gray-400` |
+
+| Size | Padding | Font |
+|---|---|---|
+| `sm` | `px-3 py-1.5` | `text-sm` (14px) |
+| `md` (default) | `px-4 py-2` | `text-sm` (14px) |
+| `lg` | `px-6 py-3` | `text-base` (16px) |
+
+---
+
+#### Input (`components/ui/Input.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `w-full` |
+| Label | `mb-1 block text-sm font-medium text-gray-700` |
+| Input | `block w-full rounded-lg border px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-gray-400` |
+| Border (normal) | `border-gray-300` |
+| Border (error) | `border-danger` |
+| Focus | `focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary` |
+| Error text | `mt-1 text-xs text-danger` |
+
+**Select elements** follow the same styling (manually applied):
+```
+block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary
+```
+
+**Textarea** uses the same classes as Input, with `rows={3}` default.
+
+---
+
+#### Card (`components/ui/Card.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `rounded-xl border border-gray-200 bg-white shadow-sm` |
+| Border radius | `rounded-xl` (12px) |
+| Shadow | `shadow-sm` |
+| Header (if title/action) | `flex items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-6` |
+| Title | `text-sm font-semibold text-gray-900` |
+| Body | `p-4 sm:p-6` |
+
+---
+
+#### Modal (`components/ui/Modal.tsx`)
+
+| Property | Value |
+|---|---|
+| Overlay | `fixed inset-0 z-50 bg-black/50` |
+| Container | `relative z-10 w-full max-w-lg rounded-xl bg-white shadow-xl` |
+| Header | `flex items-center justify-between border-b px-6 py-4` |
+| Title | `text-lg font-semibold` |
+| Close button | `rounded-lg p-1 hover:bg-gray-100`, X icon `h-5 w-5` |
+| Body | `p-6` |
+| Behaviour | Locks body scroll when open (`document.body.style.overflow = 'hidden'`) |
+
+---
+
+#### Badge (`components/ui/Badge.tsx`)
+
+| Property | Value |
+|---|---|
+| Shape | `rounded-full px-2.5 py-0.5 text-xs font-medium capitalize` |
+| Text transform | `capitalize`, underscores replaced with spaces |
+
+| Status | Background | Text |
+|---|---|---|
+| active, paid, approved, passed, resolved | `bg-success-50` | `text-success-500` |
+| complete, open, scheduled, submitted, sent, upcoming | `bg-blue-50` | `text-blue-600` |
+| planning, closed, not_started, draft, low | `bg-gray-100` | `text-gray-600` |
+| on_hold, pending, in_progress, conditional, medium | `bg-warning-50` | `text-warning-500` |
+| cancelled, rejected, overdue, failed, critical, blocked | `bg-danger-50` | `text-danger-500` |
+| high | `bg-orange-50` | `text-orange-600` |
+| (fallback) | `bg-gray-100` | `text-gray-600` |
+
+---
+
+#### Table (`components/ui/Table.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `overflow-x-auto rounded-lg border border-gray-200` |
+| Table | `min-w-full divide-y divide-gray-200 text-sm` |
+| Header row | `bg-gray-50` |
+| Header cell | `whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500` |
+| Body | `divide-y divide-gray-100 bg-white` |
+| Body cell (text) | `px-4 py-3 text-sm` |
+| Body cell (number) | `whitespace-nowrap px-4 py-3 text-sm font-medium` |
+
+---
+
+#### EmptyState (`components/ui/EmptyState.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `flex flex-col items-center justify-center py-12 text-center` |
+| Icon | `mb-4 text-gray-400`, typically `h-12 w-12` |
+| Title | `text-sm font-semibold text-gray-900` |
+| Description | `mt-1 text-sm text-gray-500` |
+| Action | `mt-4` (slot for a Button) |
+
+---
+
+#### LoadingSpinner (`components/ui/LoadingSpinner.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `flex items-center justify-center` |
+| Spinner | `animate-spin rounded-full border-2 border-gray-300 border-t-primary` |
+| Size sm | `h-4 w-4` |
+| Size md (default) | `h-8 w-8` |
+| Size lg | `h-12 w-12` |
+
+---
+
+### 15.6 Layout Components
+
+#### Sidebar (`components/layout/Sidebar.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 border-r border-gray-200 bg-white` |
+| Logo bar | `h-16 px-6`, border-b, `HardHat` icon `h-7 w-7 text-primary` + `text-lg font-bold text-primary` |
+| Nav area | `flex-1 space-y-1 px-3 py-4` |
+| Nav item (inactive) | `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900` |
+| Nav item (active) | `bg-primary-50 text-primary` |
+| Icons | `h-5 w-5` (lucide-react) |
+
+**Navigation links:**
+
+| Icon | Label | Route |
+|---|---|---|
+| `LayoutDashboard` | Dashboard | `/` |
+| `FolderKanban` | Projects | `/projects` |
+| `Users` | Tradies | `/tradies` |
+| `BarChart3` | Reports | `/reports` |
+
+---
+
+#### Header (`components/layout/Header.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6` |
+| Mobile menu button | `rounded-lg p-2 hover:bg-gray-100 md:hidden`, `Menu` icon `h-5 w-5` |
+| Title | `text-lg font-semibold text-gray-900` |
+| Notification icon | `Bell h-5 w-5 text-gray-500`, `rounded-lg p-2 hover:bg-gray-100` |
+| User avatar | `h-8 w-8 rounded-full bg-primary text-sm font-medium text-white` (initials) |
+| User name | `hidden sm:block text-sm font-medium text-gray-700` |
+| Dropdown menu | `absolute right-0 top-full mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg` |
+| Dropdown item | `flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50` |
+| Sign out | `text-danger` colour |
+
+---
+
+#### BottomNav (`components/layout/BottomNav.tsx`)
+
+| Property | Value |
+|---|---|
+| Container | `fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white md:hidden` |
+| Tab item | `flex flex-1 flex-col items-center gap-0.5 py-2` |
+| Tab label | `text-[10px] font-medium` |
+| Tab icon | `h-5 w-5` |
+| Active colour | `text-primary` |
+| Inactive colour | `text-gray-500` |
+
+**Tabs:**
+
+| Icon | Label | Route |
+|---|---|---|
+| `LayoutDashboard` | Home | `/` |
+| `FolderKanban` | Projects | `/projects` |
+| `Users` | Tradies | `/tradies` |
+| `BarChart3` | Reports | `/reports` |
+| `MoreHorizontal` | More | `#more` |
+
+---
+
+### 15.7 Page-Level Design Patterns
+
+#### Login Page
+
+- Centred layout: `flex min-h-screen items-center justify-center bg-gray-50 p-4`
+- Logo: `h-16 w-16 rounded-2xl bg-primary` with white `HardHat h-9 w-9`
+- Brand: "BuildMate" `text-2xl font-bold text-gray-900`, subtitle `text-sm text-gray-500`
+- Form card: `rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8`
+- Error banner: `rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger`
+- Register link: `font-medium text-primary hover:underline`
+
+---
+
+#### Dashboard Page
+
+- **Stats row:** 4-column grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4`)
+  - Each stat: Card with icon in `rounded-lg bg-gray-50 p-3` + label (`text-sm text-gray-500`) + value (`text-xl font-bold text-gray-900`)
+  - Icon colours: primary, success, warning, danger
+- **Content grid:** `grid-cols-1 lg:grid-cols-3 gap-6`
+  - Recent Projects card (spans 2 cols): list of project rows with hover `hover:bg-gray-50`, showing name + address + badge + currency
+  - Cash Position card: Total value `text-2xl font-bold`, income/expense `text-lg font-semibold`
+- **Milestones card:** Full width below grid
+
+---
+
+#### Projects List Page
+
+- **Header:** Title + "New Project" button (`Plus` icon, size `sm`)
+- **Search bar:** Inline `Search` icon (`absolute left-3 top-1/2 h-4 w-4 text-gray-400`), input with `pl-10`
+- **Status tabs:** `flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1`
+  - Active tab: `bg-white text-gray-900 shadow-sm rounded-md`
+  - Inactive tab: `text-gray-500 hover:text-gray-700`
+  - Tabs: All, Active, Complete, On Hold
+- **Project cards:** `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4`
+  - Card: `rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md`
+  - Name: `font-semibold text-gray-900`, address: `text-xs text-gray-500`
+  - Contract value: `text-lg font-bold text-gray-900`
+  - Progress bar: `h-2 rounded-full bg-gray-100` with `bg-primary` fill
+  - Dates: `text-xs text-gray-500`
+
+---
+
+#### Project Detail Page
+
+- **Back link:** `ArrowLeft h-4 w-4` + "Back to Projects", `text-sm text-gray-500 hover:text-gray-700`
+- **Tab navigation:** Border-bottom tabs with `border-b border-gray-200`
+  - Active: `border-primary text-primary` (border-b-2)
+  - Inactive: `border-transparent text-gray-500 hover:text-gray-700`
+  - Tabs: Overview, Budget, Cash Flow, Planning, Financials, Inspections, Documents, Team
+- **Overview:** 4-column stat cards + Quick Actions grid (2×4 link cards with icon `h-6 w-6 text-primary`)
+
+---
+
+#### Tab Filter Pattern (used on Projects, Planning, Documents, Tradies)
+
+```
+Container: flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1
+Active:    rounded-md bg-white text-gray-900 shadow-sm px-3–4 py-1.5 text-xs–sm font-medium
+Inactive:  text-gray-500 hover:text-gray-700
+```
+
+---
+
+#### View Toggle Pattern (used on Planning page)
+
+```
+Container: flex rounded-lg border border-gray-300 p-0.5
+Active:    rounded-md bg-primary text-white px-2.5 py-1 text-xs font-medium
+Inactive:  text-gray-500 hover:text-gray-700
+```
+
+---
+
+#### Form Modal Pattern
+
+All create/edit forms follow:
+1. `<Modal>` wrapper with title
+2. `<form className="space-y-4">`
+3. `<Input>` components with labels
+4. `<select>` elements matching Input styling
+5. Grid layouts for related fields: `grid grid-cols-2 gap-4`
+6. Footer: `flex justify-end gap-2 pt-2` with Cancel (secondary/ghost) + Submit (primary)
+7. Submit button text changes to "Saving…" / "Creating…" when `isPending`
+8. Submit button has `disabled` when pending or form incomplete
+
+---
+
+### 15.8 Chart Design (Recharts)
+
+#### Budget vs Actual (BarChart)
+
+| Property | Value |
+|---|---|
+| Container | Card titled "Budget vs Actual", chart in `h-72` div |
+| Budget bars | `fill="#1E40AF"` (primary), `radius={[4, 4, 0, 0]}` |
+| Spent bars | `fill="#DC2626"` (danger), `radius={[4, 4, 0, 0]}` |
+| Grid | `strokeDasharray="3 3"` |
+| Axis labels | `fontSize: 12` |
+| Tooltip | Values formatted with `formatCurrency()` |
+| Legend | Default Recharts legend |
+
+#### S-Curve Cash Flow (LineChart)
+
+| Property | Value |
+|---|---|
+| Container | Card titled "S-Curve: Planned vs Actual", chart in `h-72` div |
+| Planned line | `stroke="#93C5FD"` (primary-300), `strokeWidth={2}`, `strokeDasharray="5 5"` |
+| Actual line | `stroke="#1E40AF"` (primary), `strokeWidth={2}` |
+| Grid | `strokeDasharray="3 3"` |
+| Line type | `monotone` |
+
+---
+
+### 15.9 Gantt Chart Design
+
+**File:** `components/GanttChart.tsx`
+
+| Property | Value |
+|---|---|
+| Container | `rounded-xl border border-gray-200 bg-white overflow-hidden` |
+| Row height | `36px` |
+| Label column width | `200px` fixed |
+| Default day width | `28px` (zoom level index 3) |
+| Zoom levels | `[8, 14, 20, 28, 40, 56, 80]` pixels per day |
+
+**Status bar colours:**
+
+| Status | Bar Fill | Bar Background |
+|---|---|---|
+| COMPLETE | `bg-emerald-500` | `bg-emerald-100` |
+| IN_PROGRESS | `bg-blue-500` | `bg-blue-100` |
+| NOT_STARTED | `bg-gray-400` | `bg-gray-200` |
+| ON_HOLD | `bg-amber-500` | `bg-amber-100` |
+| BLOCKED | `bg-red-500` | `bg-red-100` |
+
+**Visual elements:**
+
+| Element | Style |
+|---|---|
+| Task bar | `rounded-md shadow-sm`, height `20px`, progress fill at `opacity: 0.85` |
+| Milestone | `h-4 w-4 rotate-45 bg-purple-600 rounded-sm shadow-sm` diamond |
+| Today line | `w-px bg-red-400` with label `bg-red-400 text-[9px] font-bold text-white` |
+| Weekend shading | `bg-gray-50/60` |
+| Grid lines | `border-r border-gray-100` at weekly intervals |
+| Hover row | `bg-blue-50` (label) / `bg-blue-50/50` (timeline) |
+| Tooltip | `rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg whitespace-nowrap` |
+
+**Legend bar:** `flex flex-wrap items-center gap-3 border-b px-4 py-2 text-xs text-gray-500`
+- Colour squares: `h-2.5 w-2.5 rounded-sm`
+- Milestone indicator: CSS triangle border trick + "Milestone" label
+
+---
+
+### 15.10 Icon System
+
+All icons use **Lucide React** (`lucide-react` v0.451).
+
+| Context | Size | Additional Classes |
+|---|---|---|
+| Navigation icons | `h-5 w-5` | — |
+| Button icons | `h-4 w-4` | — |
+| Stat card icons | `h-6 w-6` | Colour class per semantic role |
+| Empty state icons | `h-12 w-12` | `text-gray-400` |
+| Document file icons | `h-8 w-8` | `text-gray-400` |
+| Header icons | `h-5 w-5` | `text-gray-500` |
+| Inline icons (phone/email) | `h-3.5 w-3.5` | — |
+| Table inline icons | `h-3 w-3` | — |
+
+**Icon inventory:**
+
+| Module | Icons Used |
+|---|---|
+| Navigation | `LayoutDashboard`, `FolderKanban`, `Users`, `BarChart3`, `MoreHorizontal`, `HardHat` |
+| Header | `Menu`, `Bell`, `LogOut`, `User` |
+| Projects | `Plus`, `Search`, `ArrowLeft`, `ArrowRight` |
+| Project Detail | `DollarSign`, `TrendingUp`, `CalendarDays`, `Receipt`, `ClipboardCheck`, `FileText`, `Users` |
+| Planning | `ZoomIn`, `ZoomOut`, `BarChart3`, `List` |
+| Documents | `Upload`, `FileText`, `FileImage`, `File`, `Download`, `Trash2` |
+| Tradies | `Star`, `AlertTriangle`, `Phone`, `Mail` |
+| Reports | `DollarSign`, `TrendingUp`, `Users`, `FolderKanban`, `Calendar`, `ArrowRight` |
+| Dashboard | `FolderKanban`, `DollarSign`, `FileText`, `AlertTriangle`, `ArrowRight` |
+| Modal | `X` |
+
+---
+
+### 15.11 Interactive States & Transitions
+
+| Element | Normal | Hover | Active/Focus | Disabled |
+|---|---|---|---|---|
+| Primary button | `bg-primary text-white` | `bg-primary-700` | `ring-2 ring-primary-500 ring-offset-2` | `opacity-50 pointer-events-none` |
+| Card link | `shadow-sm` | `shadow-md` | — | — |
+| Nav link (desktop) | `text-gray-600` | `bg-gray-50 text-gray-900` | `bg-primary-50 text-primary` | — |
+| Nav tab (bottom) | `text-gray-500` | — | `text-primary` | — |
+| Table row (Gantt) | transparent | `bg-blue-50` | — | — |
+| Project card | `border-gray-200 shadow-sm` | `shadow-md` | — | — |
+| Input field | `border-gray-300` | — | `border-primary ring-1 ring-primary` | — |
+| Dropdown item | `bg-white` | `bg-gray-50` | — | — |
+| Tab (filter) | `text-gray-500` | `text-gray-700` | `bg-white text-gray-900 shadow-sm` | — |
+| Zoom button | `border-gray-300 bg-white text-gray-600` | `bg-gray-100` | — | `opacity-30` |
+
+**Transition:** All interactive elements use `transition-colors` (150ms ease default).
+
+---
+
+### 15.12 Progress Bar Pattern
+
+Used in: Project cards, Budget categories, Task list, Project detail.
+
+```
+Container:  h-2 overflow-hidden rounded-full bg-gray-100
+Fill:       h-full rounded-full bg-primary (or conditional colour)
+            style={{ width: `${percentage}%` }}
+```
+
+**Budget progress conditional colours:**
+- `> 100%`: `bg-danger`
+- `> 80%`: `bg-warning`
+- `≤ 80%`: `bg-success`
+
+---
+
+### 15.13 Alert / Banner Pattern
+
+**Compliance warning (Tradies page):**
+```
+Container:  flex items-center gap-3 rounded-lg border border-warning bg-warning-50 px-4 py-3
+Icon:       AlertTriangle h-5 w-5 text-warning
+Text:       text-sm text-warning-600, with <strong> for count
+```
+
+**Login error:**
+```
+Container:  rounded-lg bg-danger-50 px-4 py-3 text-sm text-danger
+```
+
+---
+
+### 15.14 Drag & Drop Zone (Documents)
+
+```
+Normal:     flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 p-8
+Drag over:  border-primary bg-primary-50
+Icon:       Upload h-8 w-8 text-gray-400, mb-2
+Text:       text-sm text-gray-500
+```
+
+---
+
+### 15.15 Currency & Date Formatting
+
+**Currency** (Australian dollars):
+```typescript
+new Intl.NumberFormat('en-AU', {
+  style: 'currency',
+  currency: 'AUD',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+}).format(amount);
+// Output: "$120,000"
+```
+
+**Date:**
+```typescript
+new Date(date).toLocaleDateString('en-AU', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+});
+// Output: "26 Mar 2026"
+```
+
+---
+
+### 15.16 Utility Functions
+
+**`cn()` — Conditional class merging:**
+```typescript
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+Used everywhere for conditional and merged Tailwind classes. Dependencies: `clsx` + `tailwind-merge`.
+
+---
+
+### 15.17 Responsive Behaviour Summary
+
+| Component | Mobile (< 768px) | Tablet/Desktop (≥ 768px) |
+|---|---|---|
+| Sidebar | Hidden | Fixed left, w-64 |
+| Bottom Nav | Visible, fixed bottom | Hidden |
+| Header menu button | Visible | Hidden |
+| Main padding | `p-4 pb-20` | `p-6 pb-6` |
+| Stats grid | 1 col (or 2 col at sm) | 4 columns |
+| Project cards | 1 column | 2–3 columns |
+| Tradie cards | 1 column | 2–3 columns |
+| Form grids | Full width | 2–3 columns |
+| Tab bars | Horizontally scrollable | Inline |
+| User name (header) | Hidden | Visible |
+| Report cards | 1 column | 2 columns |
