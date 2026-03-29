@@ -1417,3 +1417,757 @@ Used everywhere for conditional and merged Tailwind classes. Dependencies: `clsx
 | Tab bars | Horizontally scrollable | Inline |
 | User name (header) | Hidden | Visible |
 | Report cards | 1 column | 2 columns |
+
+---
+
+## 16. Complete Source File Reference
+
+This section documents every source file's exact content and configuration so the application can be **100% replicated** without access to the original repository. The design document above (Sections 1–15) describes _what_ and _why_; this section covers the remaining _exact how_ for configuration files, server source code, and frontend API layer.
+
+---
+
+### 16.1 Configuration Files
+
+#### Root `.gitignore`
+
+```gitignore
+node_modules/
+dist/
+.env
+*.log
+uploads/*
+!uploads/.gitkeep
+.DS_Store
+```
+
+#### Server `.gitignore`
+
+```gitignore
+node_modules/
+dist/
+.env
+uploads/*
+!uploads/.gitkeep
+```
+
+#### Server `.env.example`
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/buildmate"
+JWT_SECRET="your-secret-key-change-in-production"
+JWT_REFRESH_SECRET="your-refresh-secret-change-in-production"
+PORT=3001
+CORS_ORIGIN="http://localhost:5173"
+```
+
+> **Note:** Development uses SQLite. The `.env` file actually contains `DATABASE_URL="file:./dev.db"`.
+
+#### Server `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+#### Web `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src"]
+}
+```
+
+#### Web `postcss.config.js`
+
+```javascript
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+```
+
+#### `docker-compose.yml`
+
+```yaml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: buildmate-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: buildmate
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: buildmate-redis
+    ports:
+      - '6379:6379'
+
+volumes:
+  pgdata:
+```
+
+---
+
+### 16.2 Server Source — Types & Configuration
+
+#### `server/src/types/index.ts`
+
+```typescript
+import { Request } from 'express';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: string;
+}
+
+export interface AuthRequest extends Request {
+  user?: AuthUser;
+}
+
+export interface PaginationQuery {
+  page?: string;
+  limit?: string;
+  search?: string;
+}
+
+export class AppError extends Error {
+  statusCode: number;
+  isOperational: boolean;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.statusCode = statusCode;
+    this.isOperational = true;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+```
+
+#### `server/src/config/index.ts`
+
+```typescript
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+export const config = {
+  port: parseInt(process.env.PORT || '3001', 10),
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  jwt: {
+    secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-me',
+    expiresIn: '24h',
+    refreshExpiresIn: '7d',
+  },
+  upload: {
+    maxFileSize: 10 * 1024 * 1024, // 10MB
+    destination: './uploads',
+  },
+};
+```
+
+---
+
+### 16.3 Server Source — Middleware
+
+#### `server/src/middleware/auth.ts` — JWT Authentication
+
+- Extracts `Bearer <token>` from `Authorization` header
+- Verifies with `config.jwt.secret`, extracts `{ id, email, role }` into `req.user`
+- `authorize(...roles)` — checks `req.user.role` against allowed roles array
+- Returns `AppError` 401 for missing/invalid token, 403 for insufficient permissions
+
+#### `server/src/middleware/validate.ts` — Zod Validation
+
+- Accepts `schema: ZodSchema` and `source: 'body' | 'query' | 'params'`
+- On success: replaces `req[source]` with parsed data (strips extra fields)
+- On failure: returns 400 with `{ error: "Validation failed", details: [{ field, message }] }`
+
+#### `server/src/middleware/errorHandler.ts` — Global Error Handler
+
+- `AppError` instances → `{ error: message }` with the error's `statusCode`
+- Other errors → `console.error()` + 500 `{ error: "Internal server error" }`
+
+---
+
+### 16.4 Server Source — Zod Validation Schemas
+
+Each route file defines its own Zod schemas. These are critical for replication:
+
+#### Auth Schemas
+
+```typescript
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1),
+  phone: z.string().optional(),
+  role: z.enum(['ADMIN', 'PROJECT_MANAGER', 'SITE_SUPERVISOR', 'ACCOUNTS', 'TRADIE']).optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional(),
+});
+```
+
+#### Project Schemas
+
+```typescript
+const createProjectSchema = z.object({
+  name: z.string().min(1),
+  address: z.string().optional(),
+  suburb: z.string().optional(),
+  state: z.string().optional(),
+  postcode: z.string().optional(),
+  buildingClass: z.string().optional(),
+  constructionType: z.string().optional(),
+  clientName: z.string().optional(),
+  clientEmail: z.string().email().optional(),
+  clientPhone: z.string().optional(),
+  contractValue: z.number().optional(),
+  estimatedCost: z.number().optional(),
+  startDate: z.string().datetime().optional(),
+  estimatedEndDate: z.string().datetime().optional(),
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETE', 'CANCELLED']).optional(),
+  notes: z.string().optional(),
+});
+
+const updateProjectSchema = createProjectSchema.partial().extend({
+  actualEndDate: z.string().datetime().optional(),
+});
+```
+
+#### Transaction Schemas
+
+```typescript
+const createTransactionSchema = z.object({
+  projectId: z.string().uuid(),
+  type: z.enum(['INCOME', 'EXPENSE']),
+  category: z.enum(['PROGRESS_CLAIM', 'SUBCONTRACTOR', 'MATERIALS', 'PLANT_HIRE', 'LABOUR', 'PERMIT_FEE', 'INSURANCE', 'OVERHEAD', 'OTHER']),
+  description: z.string().min(1),
+  amount: z.number(),
+  gstAmount: z.number(),
+  totalAmount: z.number(),
+  date: z.string().datetime(),
+  dueDate: z.string().datetime().optional(),
+  paidDate: z.string().datetime().optional(),
+  status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'PAID', 'OVERDUE', 'CANCELLED']).optional(),
+  tradieId: z.string().uuid().optional(),
+  invoiceNumber: z.string().optional(),
+  attachmentUrl: z.string().optional(),
+  notes: z.string().optional(),
+});
+```
+
+#### Invoice Schemas
+
+```typescript
+const lineItemSchema = z.object({
+  description: z.string().min(1),
+  quantity: z.number(),
+  unit: z.string().optional(),
+  unitPrice: z.number(),
+  amount: z.number(),
+  costCode: z.string().optional(),
+});
+
+const createInvoiceSchema = z.object({
+  projectId: z.string().uuid(),
+  invoiceNumber: z.string().min(1),
+  type: z.enum(['PROGRESS_CLAIM', 'TAX_INVOICE']),
+  toName: z.string().min(1),
+  toEmail: z.string().email().optional(),
+  toAddress: z.string().optional(),
+  subtotal: z.number(),
+  gstTotal: z.number(),
+  total: z.number(),
+  retentionPercent: z.number().optional(),
+  retentionAmount: z.number().optional(),
+  amountDue: z.number(),
+  issueDate: z.string().datetime(),
+  dueDate: z.string().datetime(),
+  status: z.enum(['DRAFT', 'SENT', 'VIEWED', 'PAID', 'OVERDUE']).optional(),
+  lineItems: z.array(lineItemSchema).optional(),
+});
+```
+
+#### Budget Schemas
+
+```typescript
+const createCategorySchema = z.object({
+  projectId: z.string().uuid(),
+  costCode: z.string().min(1),
+  name: z.string().min(1),
+  budgetAmount: z.number(),
+  revisedBudget: z.number().optional(),
+  forecastToComplete: z.number().optional(),
+  sortOrder: z.number().int().optional(),
+  parentId: z.string().uuid().optional(),
+});
+
+const createVariationSchema = z.object({
+  projectId: z.string().uuid(),
+  variationNumber: z.number().int(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  amount: z.number(),
+  status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED', 'REJECTED']).optional(),
+  categoryId: z.string().uuid().optional(),
+  submittedDate: z.string().datetime().optional(),
+  approvedDate: z.string().datetime().optional(),
+  approvedBy: z.string().optional(),
+  attachmentUrl: z.string().optional(),
+});
+```
+
+#### Cash Flow Schemas
+
+```typescript
+const createCashFlowSchema = z.object({
+  projectId: z.string().uuid(),
+  month: z.string().datetime(),
+  type: z.enum(['FORECAST', 'ACTUAL']),
+  incomeAmount: z.number(),
+  expenseAmount: z.number(),
+  notes: z.string().optional(),
+});
+
+const createClaimScheduleSchema = z.object({
+  projectId: z.string().uuid(),
+  claimNumber: z.number().int(),
+  description: z.string().min(1),
+  scheduledDate: z.string().datetime(),
+  amount: z.number(),
+  percentComplete: z.number(),
+  status: z.enum(['SCHEDULED', 'SUBMITTED', 'APPROVED', 'PAID']).optional(),
+  actualDate: z.string().datetime().optional(),
+  actualAmount: z.number().optional(),
+});
+```
+
+#### Task Schemas
+
+```typescript
+const createTaskSchema = z.object({
+  projectId: z.string().uuid(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+  duration: z.number().int().optional(),
+  percentComplete: z.number().int().min(0).max(100).optional(),
+  status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETE', 'ON_HOLD', 'DELAYED']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
+  isMilestone: z.boolean().optional(),
+  parentTaskId: z.string().uuid().optional(),
+  assignedTradieId: z.string().uuid().optional(),
+  assignedUserId: z.string().uuid().optional(),
+  costCodeId: z.string().uuid().optional(),
+  sortOrder: z.number().int().optional(),
+  colour: z.string().optional(),
+  baselineStartDate: z.string().datetime().optional(),
+  baselineEndDate: z.string().datetime().optional(),
+  notes: z.string().optional(),
+});
+
+const createDependencySchema = z.object({
+  predecessorId: z.string().uuid(),
+  successorId: z.string().uuid(),
+  type: z.enum(['FINISH_TO_START', 'START_TO_START', 'FINISH_TO_FINISH', 'START_TO_FINISH']).optional(),
+  lagDays: z.number().int().optional(),
+});
+
+const createDelayLogSchema = z.object({
+  projectId: z.string().uuid(),
+  taskId: z.string().uuid().optional(),
+  reason: z.enum(['WEATHER', 'MATERIAL_DELAY', 'TRADIE_NO_SHOW', 'INSPECTION_FAIL', 'CLIENT_CHANGE', 'PERMIT_DELAY', 'OTHER']),
+  description: z.string().optional(),
+  delayDays: z.number().int().min(1),
+  date: z.string().datetime(),
+});
+```
+
+#### Inspection & Defect Schemas
+
+```typescript
+const inspectionItemSchema = z.object({
+  category: z.string().min(1),
+  description: z.string().min(1),
+  result: z.enum(['PASS', 'FAIL', 'NA', 'NOT_INSPECTED']).optional(),
+  notes: z.string().optional(),
+  photoUrls: z.array(z.string()).optional(),
+  sortOrder: z.number().int().optional(),
+});
+
+const createInspectionSchema = z.object({
+  projectId: z.string().uuid(),
+  type: z.enum(['PRE_SLAB', 'FRAME', 'LOCK_UP', 'WATERPROOFING', 'FINAL', 'DEFECT_RECTIFICATION', 'SAFETY', 'CUSTOM']),
+  title: z.string().min(1),
+  scheduledDate: z.string().datetime(),
+  completedDate: z.string().datetime().optional(),
+  inspectorName: z.string().optional(),
+  status: z.enum(['SCHEDULED', 'IN_PROGRESS', 'COMPLETE', 'CANCELLED']).optional(),
+  overallResult: z.enum(['PASS', 'FAIL', 'CONDITIONAL']).optional(),
+  notes: z.string().optional(),
+  items: z.array(inspectionItemSchema).optional(),
+});
+
+const createDefectSchema = z.object({
+  projectId: z.string().uuid(),
+  inspectionId: z.string().uuid().optional(),
+  title: z.string().min(1),
+  description: z.string().optional(),
+  location: z.string().optional(),
+  severity: z.enum(['MINOR', 'MODERATE', 'MAJOR', 'CRITICAL']),
+  status: z.enum(['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RECTIFIED', 'VERIFIED', 'CLOSED']).optional(),
+  assignedTradieId: z.string().uuid().optional(),
+  dueDate: z.string().datetime().optional(),
+  rectifiedDate: z.string().datetime().optional(),
+  verifiedDate: z.string().datetime().optional(),
+  photoUrls: z.array(z.string()).optional(),
+  rectificationPhotoUrls: z.array(z.string()).optional(),
+});
+```
+
+#### Document Schemas
+
+```typescript
+const folderValues = ['PLANS', 'CONTRACTS', 'PERMITS', 'SWMS', 'CERTIFICATES',
+  'INSURANCE', 'PHOTOS', 'REPORTS', 'CORRESPONDENCE', 'OTHER'] as const;
+
+const createDocumentSchema = z.object({
+  projectId: z.string().uuid(),
+  folder: z.enum(folderValues),
+  name: z.string().min(1),
+  description: z.string().optional(),
+});
+```
+
+#### Tradie Schemas
+
+```typescript
+const tradeValues = ['BUILDER', 'CARPENTER', 'ELECTRICIAN', 'PLUMBER', 'PLASTERER', 'PAINTER',
+  'TILER', 'BRICKLAYER', 'CONCRETER', 'ROOFER', 'LANDSCAPER', 'DEMOLITION', 'EXCAVATION',
+  'STEEL_FIXER', 'CABINET_MAKER', 'GLAZIER', 'RENDERER', 'WATERPROOFER', 'INSULATION',
+  'FENCER', 'SCAFFOLDER', 'CLEANER', 'HVAC', 'FIRE_PROTECTION', 'SECURITY_SYSTEMS',
+  'FLOORING', 'STONEMASON', 'POOL_BUILDER', 'SURVEYOR', 'ENGINEER', 'ARCHITECT',
+  'DRAFTSPERSON', 'OTHER'] as const;
+
+const createTradieSchema = z.object({
+  companyName: z.string().min(1),
+  contactName: z.string().min(1),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
+  abn: z.string().optional(),
+  trade: z.enum(tradeValues),
+  licenceNumber: z.string().optional(),
+  licenceExpiry: z.string().datetime().optional(),
+  insuranceProvider: z.string().optional(),
+  insurancePolicyNumber: z.string().optional(),
+  insuranceExpiry: z.string().datetime().optional(),
+  workersCompProvider: z.string().optional(),
+  workersCompPolicyNumber: z.string().optional(),
+  workersCompExpiry: z.string().datetime().optional(),
+  rating: z.number().int().min(1).max(5).optional(),
+  notes: z.string().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'BLACKLISTED']).optional(),
+});
+
+const createTradieDocumentSchema = z.object({
+  tradieId: z.string().uuid(),
+  type: z.enum(['LICENCE', 'PUBLIC_LIABILITY', 'WORKERS_COMP', 'ABN_LOOKUP', 'SWMS', 'OTHER']),
+  name: z.string().min(1),
+  fileUrl: z.string().min(1),
+  expiryDate: z.string().datetime().optional(),
+});
+```
+
+---
+
+### 16.5 Server Route Implementation Details
+
+Key implementation patterns not obvious from the API endpoint table:
+
+#### Prisma Client Instantiation
+
+Every route file creates its own `new PrismaClient()` instance at module level. All routes apply `router.use(authenticate)` at the top (except auth routes which selectively apply it).
+
+#### JWT Token Generation (`auth.ts`)
+
+```typescript
+function generateTokens(user: { id: string; email: string; role: string }) {
+  const accessToken = jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }   // '24h'
+  );
+  const refreshToken = jwt.sign(
+    { id: user.id },
+    config.jwt.refreshSecret,
+    { expiresIn: config.jwt.refreshExpiresIn }  // '7d'
+  );
+  return { accessToken, refreshToken };
+}
+```
+
+- Password hashing: `bcrypt.hash(password, 12)` (12 salt rounds)
+- Register returns: `{ user, accessToken, refreshToken }` (status 201)
+- Login returns: `{ user: { id, email, name, phone, role }, accessToken, refreshToken }`
+- User select fields exclude `password` in all responses
+
+#### Pagination Pattern
+
+Projects, transactions, inspections, documents, tradies use this pattern:
+
+```typescript
+const page = parseInt(req.query.page as string) || 1;
+const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+const skip = (page - 1) * limit;
+
+// ... findMany with skip/take ...
+
+res.json({
+  data: results,
+  pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+});
+```
+
+Default limit: 20. Max limit: 100.
+
+#### Flat Array Pattern
+
+Tasks, budget categories, budget variations, cash flow entries return **flat arrays** (no pagination wrapper).
+
+#### Date Handling
+
+All datetime string inputs are converted to `new Date()` before Prisma create/update.
+
+#### Project DELETE
+
+Soft-delete: sets `status` to `'CANCELLED'` (not actual deletion).
+
+#### Tradie DELETE
+
+Soft-delete: sets `status` to `'INACTIVE'`.
+
+#### Task Progress PATCH `/tasks/:id/progress`
+
+Auto-sets status based on percentage:
+- `0%` → `NOT_STARTED`
+- `1-99%` → `IN_PROGRESS`
+- `100%` → `COMPLETE`
+
+#### Budget Summary `/budget/summary/:projectId`
+
+Computes from database:
+- `totalBudget`: sum of all category `budgetAmount`
+- `totalRevised`: sum of `revisedBudget || budgetAmount`
+- `totalVariations`: sum of APPROVED variation amounts
+- `adjustedBudget`: `totalRevised + totalVariations`
+- `totalSpent`: sum of APPROVED/PAID expense transaction `totalAmount`
+- `totalForecast`: sum of `forecastToComplete`
+- `variance`: `adjustedBudget - totalSpent - totalForecast`
+
+#### Cash Flow Forecast Generation `/cashflow/forecast/:projectId`
+
+1. Requires project start/end dates
+2. Generates monthly entries from start to end
+3. Income per month: from claim schedule if a claim falls in that month
+4. Expense per month: `totalBudget / totalMonths` (evenly distributed)
+5. Deletes all existing FORECAST entries first, then creates new ones
+
+#### Document Upload (Multer)
+
+```typescript
+const storage = multer.diskStorage({
+  destination: './uploads',   // auto-creates if missing
+  filename: `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`,
+});
+
+// Max file size: 10MB
+// File URL stored as: /uploads/{filename}
+// Upload endpoint: POST /documents/upload — expects FormData with 'file' field
+```
+
+#### Document DELETE
+
+Deletes both the database record AND the physical file from disk.
+
+#### Tradie Compliance `/tradies/compliance`
+
+Returns tradies and documents expiring within `?days` (default 30):
+- Checks `tradieDocument.expiryDate`
+- Checks `tradie.licenceExpiry`, `insuranceExpiry`, `workersCompExpiry`
+
+---
+
+### 16.6 Frontend API Layer — Response Mapping Patterns
+
+Each `web/src/api/*.ts` file handles the mismatch between paginated server responses and the frontend's expectation of flat arrays:
+
+```typescript
+// Pattern used in: projects.ts, transactions.ts, inspections.ts, documents.ts, tradies.ts
+const { data } = await client.get('/endpoint', { params });
+return Array.isArray(data) ? data : data.data ?? [];
+```
+
+**Document upload** uses `FormData` with `multipart/form-data` header:
+```typescript
+const formData = new FormData();
+formData.append('file', file);
+formData.append('folder', folder.toUpperCase());
+formData.append('projectId', projectId);
+formData.append('name', file.name);
+```
+
+**Auth response mapping** (`mapUser()` function):
+- Server sends `name: "John Smith"` → frontend splits to `firstName: "John"`, `lastName: "Smith"`
+- Server sends `role: "ADMIN"` → frontend converts to `role: "admin"`
+- Server sends `accessToken` → frontend maps to `token`
+
+---
+
+### 16.7 Prisma Schema — Complete Field-Level Reference
+
+The full Prisma schema is in `server/prisma/schema.prisma` (535 lines, 20 models). Key details not captured elsewhere:
+
+- **Database provider:** `sqlite` (with `file:./dev.db` URL)
+- **All IDs:** `String @id @default(uuid())`
+- **All timestamps:** `createdAt DateTime @default(now())`, `updatedAt DateTime @updatedAt`
+- **Enums stored as strings** (SQLite does not support native enums)
+- **Cascade deletes:** Project → all child entities. Invoice → line items. Inspection → items. Tradie → documents + assignments. Task → dependencies.
+- **Self-referencing trees:** BudgetCategory (parent/children), Task (parentTask/childTasks)
+- **JSON-as-string fields:** `InspectionItem.photoUrls`, `Defect.photoUrls`, `Defect.rectificationPhotoUrls` — stored as `String @default("[]")`, parsed as JSON arrays
+- **Unique constraints:** `ProjectTeam(projectId, userId)`, `BudgetCategory(projectId, costCode)`, `Variation(projectId, variationNumber)`, `CashFlowEntry(projectId, month)`, `TradieProjectAssignment(tradieId, projectId)`, `TaskDependency(predecessorId, successorId)`
+- **Indexes:** Applied on all foreign keys and frequently queried fields (status, date, email, trade)
+
+---
+
+### 16.8 Exact Dependency Versions
+
+#### Server `package.json`
+
+```json
+{
+  "dependencies": {
+    "@prisma/client": "^6.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.12",
+    "nodemon": "^3.1.9",
+    "prisma": "^6.3.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
+```
+
+**Scripts:** `dev: "tsx watch src/index.ts"`, `build: "tsc"`, `start: "node dist/index.js"`, `prisma:generate`, `prisma:migrate`, `prisma:studio`
+
+#### Web `package.json`
+
+```json
+{
+  "dependencies": {
+    "@tanstack/react-query": "^5.59.0",
+    "axios": "^1.7.7",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.451.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.27.0",
+    "recharts": "^2.13.0",
+    "tailwind-merge": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.9"
+  }
+}
+```
+
+**Scripts:** `dev: "vite"`, `build: "tsc && vite build"`, `preview: "vite preview"`
