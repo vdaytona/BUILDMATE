@@ -30,7 +30,14 @@ The project has 5 key reference documents. **Read them in this order before maki
 
 3. **`TASKS.md`** (~570 lines) — Detailed task breakdown with 231 total tasks across 9 phases. Each task has a number, description, implementation detail, and status (✅/🔲/🔶). **Always update task status when completing work.**
 
-4. **`SOURCE_CODE.md`** (~9,800 lines) — Verbatim source code for every file in the project. Use this to replicate files exactly. Contains all 50+ source files organised by: Web Frontend (config, types, store, hooks, API layer, UI components, layout components, GanttChart, pages) and Server Backend (entry, config, types, middleware, all 10 route files, Prisma schema).
+4. **`SOURCE_CODE.md`** — Index file linking to 7 sub-files (~25,000 lines total) containing verbatim source code for every file in the project. Use these to replicate files exactly:
+   - `SOURCE_CODE_INFRA.md` — Docker, CI/CD, nginx, .gitignore
+   - `SOURCE_CODE_SERVER.md` — Server config, Prisma schema (22 models), seed data, entry point, middleware, libraries
+   - `SOURCE_CODE_SERVER_ROUTES.md` — All 13 API route files + 2 test files
+   - `SOURCE_CODE_WEB.md` — Web config, core, types, API layer (29 files)
+   - `SOURCE_CODE_WEB_COMPONENTS.md` — UI/layout components, GanttChart (539 lines), tests (22 files)
+   - `SOURCE_CODE_WEB_PAGES.md` — All 27 page components (incl. PlanningPage 1016 lines, BudgetPage 702 lines)
+   - `SOURCE_CODE_MOBILE.md` — All 74 mobile app files (config, navigation, screens, components, hooks, API, tests)
 
 5. **`server/prisma/schema.prisma`** — The database schema with 20 models. Read this directly for the latest version.
 

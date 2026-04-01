@@ -11,7 +11,14 @@ Before making ANY changes, read these documents:
 1. **`PRODUCT_SPEC.md`** — Product requirements (what to build)
 2. **`DESIGN_DOCUMENT.md`** — Technical design (how it's built) — Sections 1-16
 3. **`TASKS.md`** — Task breakdown with 231 tasks across 9 phases (what's done/remaining)
-4. **`SOURCE_CODE.md`** — Complete source code reference for all 50+ files
+4. **`SOURCE_CODE.md`** — Index + project structure linking to 7 sub-files containing complete source code for all 150+ files:
+   - `SOURCE_CODE_INFRA.md` — Docker, CI/CD, nginx, .gitignore
+   - `SOURCE_CODE_SERVER.md` — Server config, Prisma schema, seed, middleware, libraries
+   - `SOURCE_CODE_SERVER_ROUTES.md` — All 13 API route files + 2 test files
+   - `SOURCE_CODE_WEB.md` — Web config, core, types, API layer (29 files)
+   - `SOURCE_CODE_WEB_COMPONENTS.md` — UI/layout components, GanttChart, tests (22 files)
+   - `SOURCE_CODE_WEB_PAGES.md` — All 27 page components
+   - `SOURCE_CODE_MOBILE.md` — All mobile app files (74 files)
 5. **`AGENT_PROMPT.md`** — Comprehensive prompt with all conventions and patterns
 
 ## Critical Rules
